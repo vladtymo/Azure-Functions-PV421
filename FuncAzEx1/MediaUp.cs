@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using System.Net;
+using Microsoft.AspNetCore.Http.Features;
+using Azure.Storage.Blobs.Models;
 
 public class UploadPhotoFunction
 {
@@ -14,29 +16,29 @@ public class UploadPhotoFunction
     }
 
     [Function("UploadPhoto")]
-    public IActionResult Run(
+    public async Task<IActionResult> RunAsync(
         [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
     {
-        //var form = await req.ReadFormAsync();
-        //var file = form.Files["photo"];
+        string body = await new StreamReader(req.Body).ReadToEndAsync();
+        var form = System.Web.HttpUtility.ParseQueryString(body);
 
-        //if (file == null)
-        //{
-        //    var badResponse = req.CreateResponse(HttpStatusCode.BadRequest);
-        //    await badResponse.WriteStringAsync("File missing");
-        //    return badResponse;
-        //}
+        var file = form["photo"];
 
-        //var container = _blobServiceClient.GetBlobContainerClient("user-photos");
-        //var blob = container.GetBlobClient(Guid.NewGuid().ToString() + ".jpg");
+        if (file == null)
+        {
+            return new BadRequestObjectResult("File missing");
+        }
 
-        //using var stream = file.OpenReadStream();
-        //await blob.UploadAsync(stream);
+        var container = _blobServiceClient.GetBlobContainerClient("images");
 
-        //var response = req.CreateResponse(HttpStatusCode.OK);
-        //await response.WriteAsJsonAsync(new { url = blob.Uri.ToString() });
+        // generate new file name
+        string name = Guid.NewGuid().ToString();             // random name
+        string extension = Path.GetExtension(file); // get original extension
+        string fullName = name + extension;                  // full name: name.ext
 
-        //return response;
-        return new OkObjectResult("Uploaded!");
+        var blob = container.GetBlobClient(fullName);
+        await blob.UploadAsync(Stream.Null);
+
+        return new OkObjectResult(new { uploadedUrl = blob.Uri.ToString() });
     }
 }

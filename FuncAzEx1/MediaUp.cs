@@ -5,6 +5,8 @@ using Microsoft.Azure.Functions.Worker.Http;
 using System.Net;
 using Microsoft.AspNetCore.Http.Features;
 using Azure.Storage.Blobs.Models;
+using Microsoft.AspNetCore.WebUtilities;
+using HttpMultipartParser;
 
 public class UploadPhotoFunction
 {
@@ -19,25 +21,25 @@ public class UploadPhotoFunction
     public async Task<IActionResult> RunAsync(
         [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
     {
-        string body = await new StreamReader(req.Body).ReadToEndAsync();
-        var form = System.Web.HttpUtility.ParseQueryString(body);
+        var parser = await MultipartFormDataParser.ParseAsync(req.Body);
 
-        var file = form["photo"];
+        if (parser == null)
+            return new BadRequestObjectResult("Invalid data");
 
-        if (file == null)
-        {
-            return new BadRequestObjectResult("File missing");
-        }
+        if (parser.Files?.Count == 0)
+            return new BadRequestObjectResult("File is missing!");
+
+        var file = parser.Files[0];
 
         var container = _blobServiceClient.GetBlobContainerClient("images");
 
         // generate new file name
         string name = Guid.NewGuid().ToString();             // random name
-        string extension = Path.GetExtension(file); // get original extension
+        string extension = Path.GetExtension(file.FileName); // get original extension
         string fullName = name + extension;                  // full name: name.ext
 
         var blob = container.GetBlobClient(fullName);
-        await blob.UploadAsync(Stream.Null);
+        await blob.UploadAsync(file.Data);
 
         return new OkObjectResult(new { uploadedUrl = blob.Uri.ToString() });
     }

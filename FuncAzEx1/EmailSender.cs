@@ -5,43 +5,31 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using System.Net.Mail;
 using System.Net;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 namespace FuncAzEx1
 {
     public class EmailSender
     {
-        private readonly ILogger<EmailSender> _logger;
+        private readonly IEmailSender emailSender;
 
-        public EmailSender(ILogger<EmailSender> logger)
+        public EmailSender(IEmailSender emailSender)
         {
-            _logger = logger;
+            this.emailSender = emailSender;
         }
 
         [Function("SendConfirmationEmail")]
-        public IActionResult Run(
-    [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
+        public async Task<IActionResult> Run(
+            [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
         {
-            //var data = await req.ReadFromJsonAsync<EmailRequest>();
+            var data = await req.ReadFromJsonAsync<SendEmailData>();
 
-            //var client = new SendGridClient(Environment.GetEnvironmentVariable("SENDGRID_API_KEY"));
-            //var msg = new SendGridMessage()
-            //{
-            //    From = new EmailAddress("noreply@yourapp.com", "Your App"),
-            //    Subject = "Confirm your email",
-            //    HtmlContent = $"<a href='{data.ConfirmationUrl}'>Click to confirm</a>"
-            //};
-            //msg.AddTo(data.Email);
+            string subject = "Please confirm your email";
+            string content = $"Click the link to confirm your email: <a href='www.apple.com'>Confirm</a>";
 
-            //await client.SendEmailAsync(msg);
+            await emailSender.SendEmailAsync(data.Email, subject, content);
 
-            //var res = req.CreateResponse(HttpStatusCode.OK);
-            //await res.WriteStringAsync("Email sent");
-            //return res;
-
-            return new OkObjectResult("Email sent (mock)");
+            return new OkObjectResult("Email was sent!");
         }
-
-        public record EmailRequest(string Email, string ConfirmationUrl);
-
     }
 }
